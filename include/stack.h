@@ -9,9 +9,10 @@
 extern "C" {
 #endif
 
+#include "config.h"
 #include <nccl_ofi.h>
 #include <nccl_ofi_log.h>
-#include <nccl.h>
+#include <rccl.h>
 #include <stdlib.h>
 
 /*

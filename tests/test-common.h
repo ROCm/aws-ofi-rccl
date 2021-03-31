@@ -5,6 +5,7 @@
 #ifndef TEST_COMMON_H_
 #define TEST_COMMON_H_
 
+#include "config.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -14,7 +15,7 @@
 #include "mpi.h"
 #include "config.h"
 #include <unistd.h>
-#include <nccl.h>
+#include <rccl.h>
 #include <dlfcn.h>
 #include <stdarg.h>
 
@@ -34,9 +35,9 @@
 } while (false);
 
 #define CUDACHECK(call) do {							\
-        cudaError_t e = call;							\
-        if (e != cudaSuccess) {							\
-                NCCL_OFI_WARN("Cuda failure '%s'", cudaGetErrorString(e));	\
+        hipError_t e = call;							\
+        if (e != hipSuccess) {							\
+                NCCL_OFI_WARN("Cuda failure '%s'", hipGetErrorString(e));	\
                 return ncclUnhandledCudaError;					\
         }									\
 } while(false);
@@ -96,11 +97,11 @@ ncclResult_t allocate_buff(void **buf, size_t size, int buffer_type)
 	switch (buffer_type) {
 	case NCCL_PTR_CUDA:
 		NCCL_OFI_TRACE(NCCL_NET, "Allocating CUDA buffer");
-		CUDACHECK(cudaMalloc(buf, size));
+		CUDACHECK(hipMalloc(buf, size));
 		break;
 	case NCCL_PTR_HOST:
 		NCCL_OFI_TRACE(NCCL_NET, "Allocating host buffer");
-		CUDACHECK(cudaHostAlloc((void **)buf, size, cudaHostAllocMapped));
+		CUDACHECK(hipHostMalloc((void **)buf, size, hipHostMallocMapped));
 		break;
 	default:
 		NCCL_OFI_WARN("Unidentified buffer type: %d", buffer_type);
@@ -114,7 +115,7 @@ ncclResult_t initialize_buff(void *buf, size_t size, int buffer_type)
 {
 	switch (buffer_type) {
 	case NCCL_PTR_CUDA:
-		CUDACHECK(cudaMemset(buf, '1', size));
+		CUDACHECK(hipMemset(buf, '1', size));
 		break;
 	case NCCL_PTR_HOST:
 		memset(buf, '1', size);
@@ -131,14 +132,14 @@ ncclResult_t deallocate_buffer(void *buf, int buffer_type)
 {
 	switch (buffer_type) {
 	case NCCL_PTR_CUDA:
-		CUDACHECK(cudaFree((void *)buf));
+		CUDACHECK(hipFree((void *)buf));
 		break;
 	case NCCL_PTR_HOST:
-		CUDACHECK(cudaFreeHost((void *)buf));
+		CUDACHECK(hipHostFree((void *)buf));
 		break;
 	default:
 		NCCL_OFI_WARN("Unidentified buffer type: %d", buffer_type);
-		return cudaErrorInvalidValue;
+		return hipErrorInvalidValue;
 	}
 
 	return ncclSuccess;
@@ -152,7 +153,7 @@ ncclResult_t validate_data(char *recv_buf, char *expected_buf, size_t size, int 
 	switch (buffer_type) {
 	case NCCL_PTR_CUDA:
 		OFINCCLCHECK(allocate_buff((void **)&recv_buf_host, size, NCCL_PTR_HOST));
-		CUDACHECK(cudaMemcpy(recv_buf_host, recv_buf, size, cudaMemcpyDeviceToHost));
+		CUDACHECK(hipMemcpy(recv_buf_host, recv_buf, size, hipMemcpyDeviceToHost));
 
 		ret = memcmp(recv_buf_host, expected_buf, size);
 		if (ret != 0) {
@@ -182,9 +183,9 @@ ncclNet_t *get_extNet(void)
 	void *netPluginLib = NULL;
 	ncclNet_t *extNet = NULL;
 
-	netPluginLib = dlopen("libnccl-net.so", RTLD_NOW | RTLD_LOCAL);
+	netPluginLib = dlopen("librccl-net.so", RTLD_NOW | RTLD_LOCAL);
 	if (netPluginLib == NULL) {
-		NCCL_OFI_WARN("Unable to load libnccl-net.so: %s", dlerror());
+		NCCL_OFI_WARN("Unable to load librccl-net.so: %s", dlerror());
 		return NULL;
 	}
 

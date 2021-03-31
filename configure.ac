@@ -5,7 +5,7 @@
 #
 
 AC_PREREQ([2.69])
-AC_INIT([aws-ofi-nccl], [0.9], [rashika@amazon.com])
+AC_INIT([aws-ofi-rccl], [0.9], [rashika@amazon.com])
 AC_CONFIG_SRCDIR([src/nccl_ofi_net.c])
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_HEADERS([config.h])
@@ -34,18 +34,21 @@ AC_ARG_WITH([libfabric],
              LDFLAGS="-L$withval/$ofi_libdir $LDFLAGS"],
             [])
 
-AC_ARG_WITH([cuda],
-            AC_HELP_STRING([--with-cuda=PATH], [Path to non-standard CUDA installation]),
-            [AS_IF([test -d $withval/lib64], [cuda_libdir="lib64"], [cuda_libdir="lib"])
+AC_DEFINE([__HIP_PLATFORM_HCC__], [], [Use HCC Platform])
+AC_ARG_WITH([hip],
+            AC_HELP_STRING([--with-hip=PATH], [Path to non-standard HIP installation]),
+            [AS_IF([test -d $withval/lib64], [hip_libdir="lib64"], [hip_libdir="lib"])
              CFLAGS="-I$withval/include $CFLAGS"
-             LDFLAGS="-L$withval/$cuda_libdir $LDFLAGS"],
+             LDFLAGS="-L$withval/$hip_libdir $LDFLAGS"],
+            [CFLAGS="-I/opt/rocm/include $CFLAGS"
+             LDFLAGS="-L/opt/rocm/lib $LDFLAGS"],
             [])
 
-AC_ARG_WITH([nccl],
-            AC_HELP_STRING([--with-nccl=PATH], [Path to non-standard NCCL installation]),
-            [AS_IF([test -d $withval/lib64], [nccl_libdir="lib64"], [nccl_libdir="lib"])
-             CFLAGS="-I$withval/include $CFLAGS"
-             LDFLAGS="-L$withval/$nccl_libdir $LDFLAGS"],
+AC_ARG_WITH([rccl],
+            AC_HELP_STRING([--with-rccl=PATH], [Path to non-standard NCCL installation]),
+            [AS_IF([test -d $withval/lib64], [rccl_libdir="lib64"], [rccl_libdir="lib"])
+             CFLAGS="-I/opt/rocm/include $CFLAGS"
+             LDFLAGS="-L/opt/rocm/lib $LDFLAGS"],
             [])
 
 AC_ARG_WITH([mpi],
@@ -62,10 +65,10 @@ AS_IF([test "x${enable_trace}" = "xyes" ],
        AC_MSG_RESULT(yes)],
        [trace=0
        AC_MSG_RESULT(no)])
-AC_DEFINE_UNQUOTED([OFI_NCCL_TRACE], [${trace}], [Defined to 1 if aws-ofi-nccl was configured with --enable-trace, 0 otherwise])
+AC_DEFINE_UNQUOTED([OFI_NCCL_TRACE], [${trace}], [Defined to 1 if aws-ofi-rccl was configured with --enable-trace, 0 otherwise])
 
 # Checks for header files.
-AC_CHECK_HEADERS([limits.h stdlib.h string.h unistd.h rdma/fabric.h cuda_runtime.h], [],[
+AC_CHECK_HEADERS([limits.h stdlib.h string.h unistd.h rdma/fabric.h hip/hip_runtime.h], [],[
 	AC_MSG_ERROR([unable to find required headers])
 ])
 
@@ -83,5 +86,5 @@ AC_CONFIG_FILES([Makefile
 LT_INIT([shared disable-static])
 AC_OUTPUT
 echo "*"
-echo "* AWS OFI NCCL plugin has been configured."
+echo "* AWS OFI RCCL plugin has been configured."
 echo "*"

@@ -55,7 +55,7 @@ int main(int argc, char* argv[])
 	/* Set CUDA device for subsequent device memory allocation, in case GDR is used */
 	cuda_dev = local_rank;
 	NCCL_OFI_TRACE(NCCL_NET, "Using CUDA device %d for memory allocation", cuda_dev);
-	CUDACHECK(cudaSetDevice(cuda_dev));
+	CUDACHECK(hipSetDevice(cuda_dev));
 
 	/* Get external Network from NCCL-OFI library */
 	extNet = get_extNet();

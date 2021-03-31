@@ -375,16 +375,16 @@ static ncclResult_t get_cuda_device(void *data, int *device)
 {
 	ncclResult_t ret = ncclSuccess;
 	int cuda_device = -1;
-	struct cudaPointerAttributes attr;
-	cudaError_t cuda_ret = cudaPointerGetAttributes(&attr, data);
+	struct hipPointerAttribute_t attr;
+	hipError_t cuda_ret = hipPointerGetAttributes(&attr, data);
 
-	if (cuda_ret != cudaSuccess) {
+	if (cuda_ret != hipSuccess) {
 		ret = ncclUnhandledCudaError;
 		NCCL_OFI_WARN("Invalid buffer pointer provided");
 		goto exit;
 	}
 
-	if (attr.type == cudaMemoryTypeDevice) {
+	if (attr.memoryType == hipMemoryTypeDevice) {
 		cuda_device = attr.device;
 	}
 	else {

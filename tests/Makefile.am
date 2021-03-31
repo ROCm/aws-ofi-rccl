@@ -6,8 +6,8 @@
 
 AM_CFLAGS = -g -O3 -Wall -fPIC -Wno-sign-compare
 AM_CFLAGS += -I$(top_srcdir)/include
-AM_LDFLAGS = -lmpi -lcudart
-LDADD = ../src/libnccl-net.la
+AM_LDFLAGS = -lmpi -lamdhip64
+LDADD = ../src/librccl-net.la
 CC=mpicc
 
 bin_PROGRAMS = nccl_connection nccl_message_transfer ring
