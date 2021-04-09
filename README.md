@@ -1,19 +1,19 @@
-# AWS OFI NCCL
+# AWS OFI RCCL
 
-AWS OFI NCCL is a plug-in which enables EC2 developers to use
+AWS OFI RCCL is a plug-in which enables EC2 developers to use
 [libfabric](https://github.com/ofiwg/libfabric) as a network provider while
-running [NVIDIA's NCCL](https://github.com/NVIDIA/nccl) based applications.
+running [AMD's RCCL](https://github.com/ROCmSoftwarePlatform/rccl) based applications.
 
 ## Overview
 
-Machine learning frameworks running on top of NVIDIA GPUs use a library called
-[NCCL](https://developer.nvidia.com/nccl) which provides standard collective
+Machine learning frameworks running on top of AMD GPUs use a library called
+[RCCL](https://github.com/ROCmSoftwarePlatform/rccl) which provides standard collective
 communication routines for an arbitrary number of GPUs installed across single
 or multiple nodes.
 
-This project implements a plug-in which maps NCCLs connection-oriented
+This project implements a plug-in which maps RCCLs connection-oriented
 transport APIs to [libfabric's](https://ofiwg.github.io/libfabric/)
-connection-less reliable interface. This allows NCCL applications to take
+connection-less reliable interface. This allows RCCL applications to take
 benefit of libfabric's transport layer services like reliable message support
 and operating system bypass.
 
@@ -28,9 +28,9 @@ The plug-in currently supports the following distributions:
 
 It requires
 [Libfabric v1.11.0](https://github.com/ofiwg/libfabric/releases/tag/v1.11.0)
-and supports [NCCL v2.8.3](https://github.com/NVIDIA/nccl/releases/tag/v2.8.3-1).
-The plug-in also maintains backward compatibility with older NCCL versions upto
-[NCCL v2.4.x](https://github.com/NVIDIA/nccl/releases/tag/v2.4.8-1).
+and supports [RCCL v2.7.8](https://github.com/ROCmSoftwarePlatform/rccl).
+The plug-in also maintains backward compatibility with older RCCL versions upto
+[RCCL v2.4.x](https://github.com/ROCmSoftwarePlatform/rccl).
 
 Libfabric supports various providers. The plug-in can choose only those which
 support the following features as defined in the
@@ -54,9 +54,9 @@ GPUDirect RDMA support.
 
 ### Dependencies
 
-`aws-ofi-nccl` requires working installations of NCCL and libfabric. You can
+`aws-ofi-rccl` requires working installations of RCCL and libfabric. You can
 find the instructions for installing the first two at
-[NCCL installation](https://github.com/NVIDIA/nccl) and
+[RCCL installation](https://github.com/ROCmSoftwarePlatform/rccl) and
 [libfabric installation](https://github.com/ofiwg/libfabric) respectively.
 
 ### Build Instructions
@@ -77,7 +77,7 @@ dependencies with the following flags:
 ```
   --with-libfabric=PATH   Path to non-standard libfabric installation
   --with-cuda=PATH        Path to non-standard CUDA installation
-  --with-nccl=PATH        Path to non-standard NCCL installation
+  --with-rccl=PATH        Path to non-standard RCCL installation
   --with-mpi=PATH         Path to non-standard MPI installation
 ```
 
@@ -100,19 +100,19 @@ The plugin allows to configure the following variables at run-time according to 
       <th>Accepted Value</th>
    </thead>
    <tr>
-      <td><code>OFI_NCCL_USE_IPV6_TCP</code></td>
+      <td><code>OFI_RCCL_USE_IPV6_TCP</code></td>
       <td>Allow using endpoints with IPv6 addressing format for TCP provider. Users can specify to use a preferred libfabric provider with `FI_PROVIDER` environment variable.</td>
       <td>Boolean</td>
       <td>0/1 (Default: 0)</td>
    </tr>
    <tr>
-      <td><code>OFI_NCCL_TCP_EXCLUDE_IF</code></td>
+      <td><code>OFI_RCCL_TCP_EXCLUDE_IF</code></td>
       <td>List of interface names to be filtered out for TCP provider. Users can specify to use a preferred libfabric provider with `FI_PROVIDER` environment variable.</td>
       <td>String</td>
       <td>Comma-separated list of interface names (Default: "lo,docker0")</td>
    </tr>
    <tr>
-      <td><code>OFI_NCCL_GDR_FLUSH_DISABLE</code></td>
+      <td><code>OFI_RCCL_GDR_FLUSH_DISABLE</code></td>
       <td>Disable flush operation when using GPUDirect.</td>
       <td>Boolean</td>
       <td>0/1 (Default: 0)</td>
@@ -129,26 +129,26 @@ for your linux distribution. Once MPI is setup, you can use commands like below
 for running any test of your choice.
 
 ```
-mpirun -n 2 --host <host-1>,<host-2> $INSTALL_PREFIX/bin/nccl_message_transfer
+mpirun -n 2 --host <host-1>,<host-2> $INSTALL_PREFIX/bin/rccl_message_transfer
 ```
 
 **Note:** All tests require 2 MPI ranks to run except [ring.c](tests/ring.c)
 which requires atleast 3 ranks.
 
-### Running nccl-perf tests
+### Running rccl-perf tests
 
-To run standard `nccl-perf` tests with the `aws-ofi-nccl` plugin, you can
+To run standard `rccl-perf` tests with the `aws-ofi-rccl` plugin, you can
 follow the instructions below.
 
 1. Clone the repository
 ```
-git clone https://github.com/NVIDIA/nccl-tests.git
+git clone https://github.com/ROCmSoftwarePlatform/rccl-tests.git
 ```
 
 2. Build the tests
 ```
-cd  nccl-tests/
-make NCCL_HOME=~/nccl/build/
+cd  rccl-tests/
+make NCCL_HOME=~/rccl/build/
 ```
 
 3. Run perf tests
@@ -164,7 +164,7 @@ find the plugin.
 
 If you have any issues in building or using the package or if you think you may
 have found a bug, please open an
-[issue](https://github.com/aws/aws-ofi-nccl/issues).
+[issue](https://github.com/aws/aws-ofi-rccl/issues).
 
 ## Contributing
 
