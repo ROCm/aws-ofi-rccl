@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2018 Amazon.com, Inc. or its affiliates. All rights reserved.
+ * Modifications Copyright (c) 2021, Advanced Micro Devices, Inc. All rights reserved.
  */
 
 #ifndef STACK_H_
