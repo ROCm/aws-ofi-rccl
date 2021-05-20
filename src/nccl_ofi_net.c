@@ -441,7 +441,7 @@ static ncclResult_t register_mr_buffers(ofiComm_t *comm, void *data,
 	if (type == NCCL_PTR_HOST) {
 		mr_attr.iface = FI_HMEM_SYSTEM;
 	} else {
-		mr_attr.iface = FI_HMEM_CUDA;
+		mr_attr.iface = FI_HMEM_ROCR;
 
 		/* Get CUDA device ID */
 		ret = get_cuda_device(data, &mr_attr.device.cuda);
@@ -1068,7 +1068,7 @@ exit:
 
 static ncclResult_t ofi_devices(int *ndev)
 {
-	*ndev = ofi_ndevices;
+	*ndev = ofi_ndevices ? 1 : 0;
 	return ncclSuccess;
 }
 
