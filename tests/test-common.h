@@ -98,7 +98,7 @@ ncclResult_t allocate_buff(void **buf, size_t size, int buffer_type)
 	switch (buffer_type) {
 	case NCCL_PTR_CUDA:
 		NCCL_OFI_TRACE(NCCL_NET, "Allocating CUDA buffer");
-		CUDACHECK(hipMalloc(buf, size));
+		CUDACHECK(hipExtMallocWithFlags(buf, size, hipDeviceMallocFinegrained));
 		break;
 	case NCCL_PTR_HOST:
 		NCCL_OFI_TRACE(NCCL_NET, "Allocating host buffer");

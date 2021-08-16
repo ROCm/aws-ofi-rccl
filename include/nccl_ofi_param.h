@@ -90,7 +90,7 @@ OFI_NCCL_PARAM_STR(exclude_tcp_if, "EXCLUDE_TCP_IF", "lo,docker0");
  * ensures data consistency.
  * By default, plugin issues flush commands.
  */
-OFI_NCCL_PARAM_INT(gdr_flush_disable, "GDR_FLUSH_DISABLE", 0);
+OFI_NCCL_PARAM_INT(gdr_flush_disable, "GDR_FLUSH_DISABLE", 1);
 
 #ifdef _cplusplus
 } // End extern "C"

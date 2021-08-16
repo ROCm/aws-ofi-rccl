@@ -21,7 +21,7 @@ nccl_ofi_t **nccl_ofi_component = NULL;
 /* Indicates if memory registration of local buffers is required */
 bool local_mr = false;
 /* Indicates if memory registration of device buffers is required */
-bool hmem_mr = false;
+bool hmem_mr = true;
 /* Indicates if GPUDirect is supported by libfabric provider */
 bool support_gdr = true;
 
@@ -457,6 +457,8 @@ static ncclResult_t register_mr_buffers(ofiComm_t *comm, void *data,
 			       type, comm->dev, fi_strerror(-rc));
 		ret = ncclSystemError;
 	}
+	NCCL_OFI_TRACE(NCCL_INIT | NCCL_NET, "Successfully registered memory (type = %d) for device %d mr_handle %p.",
+			       type, comm->dev, *mr_handle);
 
 exit:
 	return ret;
@@ -473,7 +475,7 @@ static void get_hints(struct fi_info *hints, int request_gdr)
 		 * Set MR mode bits to indicate that application allows
 		 * registration of both local and device memory buffers
 		 */
-		hints->domain_attr->mr_mode = FI_MR_LOCAL | FI_MR_HMEM;
+		hints->domain_attr->mr_mode = FI_MR_ENDPOINT;
 	}
 	else {
 		hints->caps = FI_TAGGED | FI_MSG | FI_REMOTE_COMM;
@@ -481,18 +483,18 @@ static void get_hints(struct fi_info *hints, int request_gdr)
 		 * Set MR mode bits to indicate that application allows
 		 * registration of both local memory buffers
 		 */
-		hints->domain_attr->mr_mode = FI_MR_LOCAL;
+		hints->domain_attr->mr_mode =FI_MR_ENDPOINT;
 	}
 
-	hints->mode = FI_CONTEXT;
+	hints->mode = 0;
 
 	hints->ep_attr->type = FI_EP_RDM;
 
-	hints->domain_attr->control_progress = FI_PROGRESS_AUTO;
-	hints->domain_attr->data_progress = FI_PROGRESS_AUTO;
+	hints->domain_attr->control_progress = FI_PROGRESS_MANUAL;
+	hints->domain_attr->data_progress = FI_PROGRESS_MANUAL;
 
 	/* Set MR mode bits to indicate FI_MR_BASIC registration */
-	hints->domain_attr->mr_mode |= FI_MR_VIRT_ADDR | FI_MR_ALLOCATED | FI_MR_PROV_KEY;
+	//hints->domain_attr->mr_mode |= FI_MR_VIRT_ADDR | FI_MR_ALLOCATED | FI_MR_PROV_KEY;
 
 	hints->tx_attr->msg_order = FI_ORDER_SAS;
 	hints->rx_attr->msg_order = FI_ORDER_SAS;
@@ -923,7 +925,7 @@ static ncclResult_t ofi_process_cq(nccl_ofi_t *nccl_ofi_comp)
 	struct fi_cq_tagged_entry cqe_tagged_buffers[cqe_burst];
 	nccl_ofi_req_t *req = NULL;
 	struct fid_cq *cq = nccl_ofi_comp->cq;
-	uint64_t control_bit_mask = ~(nccl_ofi_comp->max_tag);
+	uint64_t control_bit_mask = nccl_ofi_comp->max_tag+1;
 
 	while (true) {
 
@@ -982,7 +984,7 @@ static inline ncclResult_t nccl_ofi_progress(nccl_ofi_t *nccl_ofi_comp)
 static ncclResult_t ofi_init(ncclDebugLogger_t logFunction)
 {
 	ncclResult_t ret = ncclSuccess;
-	char *prov_include = NULL;
+	char *prov_include = "cxi";
 	int idx, rc;
 
 	ofi_log_function = logFunction;
@@ -1029,8 +1031,8 @@ static ncclResult_t ofi_init(ncclDebugLogger_t logFunction)
 		}
 	}
 
-	NCCL_OFI_INFO(NCCL_INIT | NCCL_NET, "Selected Provider is %s",
-		      ofi_info_list->fabric_attr->prov_name);
+	NCCL_OFI_INFO(NCCL_INIT | NCCL_NET, "Selected Provider is %s mr_mode %x",
+		      ofi_info_list->fabric_attr->prov_name, ofi_info_list->domain_attr->mr_mode);
 
 	/* Check if provider requires local memory registration */
 	if (ofi_info_list->domain_attr->mr_mode & FI_MR_LOCAL) {
@@ -1068,7 +1070,7 @@ exit:
 
 static ncclResult_t ofi_devices(int *ndev)
 {
-	*ndev = ofi_ndevices ? 1 : 0;
+	*ndev = ofi_ndevices;
 	return ncclSuccess;
 }
 
@@ -1410,7 +1412,7 @@ static ncclResult_t ofi_connect(int dev, void *handle, void **sendComm)
 		 */
 		rc = fi_tsend(sComm->local_ep, (void *)&local_ep_addr,
 			      MAX_EP_ADDR, NULL, sComm->remote_ep,
-			      sComm->tag | ~max_tag, &req->ctx);
+			      sComm->tag | (max_tag+1), &req->ctx);
 		if (rc == 0)
 			break;
 		else if (rc == -FI_EAGAIN) {
@@ -1503,7 +1505,7 @@ static ncclResult_t ofi_accept(void *listenComm, void **recvComm)
 	/* Post a buffer for receiving connection requests */
 	do {
 		rc = fi_trecv(lComm->local_ep, (void *)&remote_ep_addr, MAX_EP_ADDR,
-			      NULL, FI_ADDR_UNSPEC, lComm->tag | ~max_tag,
+			      NULL, FI_ADDR_UNSPEC, lComm->tag | (max_tag+1),
 			      0, &req->ctx);
 		if (rc == 0)
 			break;
@@ -2052,7 +2054,7 @@ static ncclResult_t ofi_closeRecv(void *recvComm)
 
 	dev = rComm->dev;
 
-	if (support_gdr) {
+	if (support_gdr && rComm->flush_buff.mr_handle) {
 		/* Deregister Flush buffer memory region */
 		mr_handle = (struct fid_mr *)rComm->flush_buff.mr_handle;
 		rc = fi_close((fid_t)mr_handle);
