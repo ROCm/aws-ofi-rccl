@@ -21,7 +21,7 @@ nccl_ofi_t **nccl_ofi_component = NULL;
 /* Indicates if memory registration of local buffers is required */
 bool local_mr = false;
 /* Indicates if memory registration of device buffers is required */
-bool hmem_mr = true;
+bool hmem_mr = false;
 /* Indicates if GPUDirect is supported by libfabric provider */
 bool support_gdr = true;
 
