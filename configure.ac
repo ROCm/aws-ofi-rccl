@@ -38,7 +38,7 @@ AC_ARG_WITH([libfabric],
 AC_DEFINE([__HIP_PLATFORM_HCC__], [], [Use HCC Platform])
 AC_ARG_WITH([hip],
             AC_HELP_STRING([--with-hip=PATH], [Path to non-standard HIP installation]),
-            [AS_IF([test -d $withval/lib64], [hip_libdir="lib64"], [hip_libdir="lib"])
+            [AS_IF([test -d $withval/lib], [hip_libdir="lib"], [hip_libdir="lib64"])
              CFLAGS="-I$withval/include $CFLAGS"
              LDFLAGS="-L$withval/$hip_libdir $LDFLAGS"],
             [CFLAGS="-I/opt/rocm/include $CFLAGS"
