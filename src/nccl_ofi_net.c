@@ -1199,7 +1199,7 @@ static ncclResult_t ofi_getProperties(int dev, ncclNetProperties_t *props)
 
 	dev_props.name = strdup(nic_info->device_attr->name);
 	/* Speed reported in Mbps */
-	dev_props.speed = nic_info->link_attr->speed / (1e6);
+	dev_props.speed = nic_info->link_attr->speed / (1e3);
 
 	goto exit;
 
