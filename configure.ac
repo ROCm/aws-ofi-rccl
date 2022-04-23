@@ -1,12 +1,12 @@
 #
 # Copyright (c) 2018-2019, Amazon.com, Inc. or its affiliates. All rights reserved.
-# Modifications Copyright (c) 2021, Advanced Micro Devices, Inc. All rights reserved.
+# Modifications Copyright (c) 2022, Advanced Micro Devices, Inc. All rights reserved.
 #
 # See LICENSE.txt for license information
 #
 
 AC_PREREQ([2.69])
-AC_INIT([aws-ofi-rccl], [0.9], [rashika@amazon.com])
+AC_INIT([aws-ofi-rccl], [1.2.0], [rashika@amazon.com], , [https://github.com/ROCmSoftwarePlatform/aws-ofi-rccl])
 AC_CONFIG_SRCDIR([src/nccl_ofi_net.c])
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_HEADERS([config.h])

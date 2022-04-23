@@ -37,9 +37,14 @@ extern "C" {
 #define MAX_BDF_LEN		(25)
 
 /*
- * We have a limit of MAX_HANDLE_SIZE = 64 bytes. Therefore, we can only
- * support an endpoint name of maximum 56 bytes. We are using remaining
- * 8 bytes for tags.
+ * NCCL_NET_HANDLE_MAXSIZE is a limited resource (and defined in NCCL).
+ * An endpoint address buffer of 56 bytes *should* be large enough to hold
+ * all libfabric providers. In case the requirement changes, NCCL v2.12
+ * provides enough room to increase this size but we would need to maintain
+ * backwards compatiblity with all NCCL versions.
+ *
+ * We also store tags and communicator stage information in remaining
+ * part of the handle.
  */
 #define MAX_EP_ADDR		(56)
 
@@ -56,8 +61,14 @@ extern "C" {
  */
 #define MIN_TAG_BITS_FOR_RING_ID	(32 + 1)
 
+/* Maximum number of grouped receives */
+#define NCCL_OFI_MAX_RECVS	1
+
 /* This is twice the size of maximum inflight requests supported by NCCL */
 #define NCCL_OFI_MAX_REQUESTS	256
+
+/* Flush read size (bytes) */
+#define NCCL_OFI_FLUSH_SIZE	4
 
 /* NCCL OFI lock for concurrency */
 pthread_mutex_t nccl_ofi_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -104,11 +115,31 @@ typedef struct free_list {
 
 /* Metadata about dummy flush buffer */
 typedef struct flush_buffer {
-	int host_buffer;
+	void *host_buffer;
 	size_t size;
 	/* Memory registration handle of the local buffer */
 	struct fid_mr *mr_handle;
 } flush_buffer_t;
+
+#if (NCCL_VERSION_CODE >= NCCL_VERSION(2, 12, 0)) /* Support NCCL v2.12 */
+struct nccl_ofi_req;
+typedef struct nccl_ofi_req nccl_ofi_req_t;
+
+/* Various stages of connection establishment */
+typedef enum nccl_ofi_comm_stage {
+	COMM_CREATE_START = 0,
+	COMM_SEND_CONN,
+	COMM_RECV_CONN,
+	COMM_REQ_PENDING_COMP,
+	COMM_CONNECTED,
+} nccl_ofi_comm_stage_t;
+
+typedef struct save_comm_state {
+	void *comm;
+	nccl_ofi_req_t *req;
+	nccl_ofi_comm_stage_t stage;
+} save_comm_state_t;
+#endif
 
 typedef struct listenComm {
 	uint64_t tag;
@@ -116,6 +147,12 @@ typedef struct listenComm {
 	fi_addr_t local_ep_addr;
 	int dev;
 	bool accepted;
+#if (NCCL_VERSION_CODE >= NCCL_VERSION(2, 12, 0)) /* Support NCCL v2.12 */
+	/* Saves temporary state when creating receive communicator object */
+	save_comm_state_t state;
+	/* Saves peer address information */
+	void *buffer;
+#endif
 } listenComm_t;
 
 typedef struct comm {
@@ -154,6 +191,11 @@ typedef struct nccl_ofi_req {
 	/* Associated Device ID */
 	int dev;
 
+#if (NCCL_VERSION_CODE >= NCCL_VERSION(2, 12, 0)) /* Support NCCL v2.12 */
+	/* Number of receives associated with request */
+	int num_recvs;
+#endif
+
 	/* Size of completed request */
 	size_t size;
 
@@ -188,6 +230,17 @@ typedef struct pending_reqs_q {
 	pending_reqs_q_elem_t *head;
 	pending_reqs_q_elem_t *tail;
 } pending_reqs_q_t;
+
+typedef struct nccl_ofi_handle {
+	char ep_name[MAX_EP_ADDR];
+	uint64_t tag;
+#if (NCCL_VERSION_CODE >= NCCL_VERSION(2, 12, 0)) /* Support NCCL v2.12 */
+	/* Save temporary communicator state when creating send communicator */
+	save_comm_state_t state;
+#endif
+} nccl_ofi_handle_t;
+
+_Static_assert(sizeof(nccl_ofi_handle_t) <= NCCL_NET_HANDLE_MAXSIZE, "Size of OFI Handle is too large");
 
 /*
  * Structure for an OFI network device.

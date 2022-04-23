@@ -22,15 +22,14 @@ and operating system bypass.
 The plug-in currently supports the following distributions:
 * Amazon Linux
 * Amazon Linux 2
-* Redhat Enterprise Linux 7
-* Ubuntu 16.04, 18.04 and 20.04 LTS
-* CentOS 7
+* Redhat Enterprise Linux 7 and 8
+* Ubuntu 18.04 and 20.04 LTS
+* CentOS 7 and 8
 
-It requires
-[Libfabric v1.11.0](https://github.com/ofiwg/libfabric/releases/tag/v1.11.0)
-and supports [RCCL v2.7.8](https://github.com/ROCmSoftwarePlatform/rccl).
-The plug-in also maintains backward compatibility with older RCCL versions upto
-[RCCL v2.4.x](https://github.com/ROCmSoftwarePlatform/rccl).
+It requires [Libfabric](http://github.com/ofiwg/libfabric/)
+and [RCCL](http://github.com/https://github.com/ROCmSoftwarePlatform/rccl).  Please see the
+[Release notes](http://github.com/aws/aws-ofi-rccl/releases) for
+information on version compatibility.
 
 Libfabric supports various providers. The plug-in can choose only those which
 support the following features as defined in the
@@ -40,7 +39,6 @@ support the following features as defined in the
 * Data transfer context structures (`FI_CONTEXT`)
 * Reliable datagram endpoints (`FI_EP_RDM`)
 * Send after Send ordering semantics (`FI_ORDER_SAS`)
-* Automatic control and data progress model (`FI_PROGRESS_AUTO`)
 * Communication with remote endpoints (`FI_REMOTE_COMM`)
 
 For GPUDirect RDMA support, it requires these additional features from libfabric
@@ -65,7 +63,7 @@ The plugin uses GNU autotools for its build system. You can build it as follows:
 
 ```
 $ ./autogen.sh
-$ ./configure
+$ CC=cc ./configure --with-libfabric=/opt/cray/libfabric/1.15.0.0 --with-hip=/opt/rocm-5.0.2
 $ make
 $ sudo make install
 ```
@@ -76,7 +74,7 @@ dependencies with the following flags:
 
 ```
   --with-libfabric=PATH   Path to non-standard libfabric installation
-  --with-cuda=PATH        Path to non-standard CUDA installation
+  --with-hip=PATH         Path to non-standard ROCm installation
   --with-rccl=PATH        Path to non-standard RCCL installation
   --with-mpi=PATH         Path to non-standard MPI installation
 ```
@@ -100,22 +98,22 @@ The plugin allows to configure the following variables at run-time according to 
       <th>Accepted Value</th>
    </thead>
    <tr>
-      <td><code>OFI_RCCL_USE_IPV6_TCP</code></td>
+      <td><code>OFI_NCCL_USE_IPV6_TCP</code></td>
       <td>Allow using endpoints with IPv6 addressing format for TCP provider. Users can specify to use a preferred libfabric provider with `FI_PROVIDER` environment variable.</td>
       <td>Boolean</td>
       <td>0/1 (Default: 0)</td>
    </tr>
    <tr>
-      <td><code>OFI_RCCL_TCP_EXCLUDE_IF</code></td>
+      <td><code>OFI_NCCL_TCP_EXCLUDE_IF</code></td>
       <td>List of interface names to be filtered out for TCP provider. Users can specify to use a preferred libfabric provider with `FI_PROVIDER` environment variable.</td>
       <td>String</td>
       <td>Comma-separated list of interface names (Default: "lo,docker0")</td>
    </tr>
    <tr>
-      <td><code>OFI_RCCL_GDR_FLUSH_DISABLE</code></td>
+      <td><code>OFI_NCCL_GDR_FLUSH_DISABLE</code></td>
       <td>Disable flush operation when using GPUDirect.</td>
       <td>Boolean</td>
-      <td>0/1 (Default: 0)</td>
+      <td>0/1 (Default: 1)</td>
    </tr>
 </table>
 
@@ -135,6 +133,17 @@ mpirun -n 2 --host <host-1>,<host-2> $INSTALL_PREFIX/bin/rccl_message_transfer
 **Note:** All tests require 2 MPI ranks to run except [ring.c](tests/ring.c)
 which requires atleast 3 ranks.
 
+### Build latest RCCL develop branch
+```
+cd ~
+git clone hxxps://github.com/ROCmSoftwarePlatform/rccl.git
+cd rccl
+mkdir build
+cd build/
+CXX=/opt/rocm-5.0.2/bin/hipcc cmake ..
+make -j
+```
+
 ### Running rccl-perf tests
 
 To run standard `rccl-perf` tests with the `aws-ofi-rccl` plugin, you can
@@ -148,12 +157,18 @@ git clone https://github.com/ROCmSoftwarePlatform/rccl-tests.git
 2. Build the tests
 ```
 cd  rccl-tests/
-make NCCL_HOME=~/rccl/build/
+MPI_HOME=/opt/cray/pe/mpich/8.1.15/ofi/cray/10.0 ROCM_PATH=/opt/rocm-5.0.2 MPI=1 NCCL_HOME=~/rccl/build/ make -j
 ```
 
 3. Run perf tests
 ```
-NCCL_DEBUG=INFO build/all_reduce_perf -b 8 -f 2 -e 32M -c 1
+export NCCL_DEBUG=INFO
+export FI_CXI_ATS=0
+export LD_LIBRARY_PATH=/home/${USER}/rccl/build:/home/${USER}/aws-ofi-rccl/src/.libs/:/opt/cray/libfabric/1.15.0.0/lib64/:/opt/rocm-5.0.2/lib
+export FI_LOG_LEVEL=info
+export NCCL_NET_GDR_LEVEL=4
+
+srun -N 4 ~/rccl-tests/build/all_reduce_perf -b 8 -e 1G -f 2 -g 8
 ```
 
 If you installed the AWS libfabric plugin in a custom prefix, ensure
@@ -164,7 +179,7 @@ find the plugin.
 
 If you have any issues in building or using the package or if you think you may
 have found a bug, please open an
-[issue](https://github.com/aws/aws-ofi-rccl/issues).
+[issue](https://github.com/ROCmSoftwarePlatform/aws-ofi-rccl/issues).
 
 ## Contributing
 
