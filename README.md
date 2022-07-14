@@ -63,7 +63,7 @@ The plugin uses GNU autotools for its build system. You can build it as follows:
 
 ```
 $ ./autogen.sh
-$ CC=cc ./configure --with-libfabric=/opt/cray/libfabric/1.15.0.0 --with-hip=/opt/rocm-5.0.2
+$ CC=cc ./configure --with-libfabric=/opt/cray/libfabric/1.15.0.0 --with-hip=/opt/rocm-5.2.0
 $ make
 $ sudo make install
 ```
@@ -140,7 +140,7 @@ git clone hxxps://github.com/ROCmSoftwarePlatform/rccl.git
 cd rccl
 mkdir build
 cd build/
-CXX=/opt/rocm-5.0.2/bin/hipcc cmake ..
+CXX=/opt/rocm-5.2.0/bin/hipcc cmake ..
 make -j
 ```
 
@@ -157,16 +157,16 @@ git clone https://github.com/ROCmSoftwarePlatform/rccl-tests.git
 2. Build the tests
 ```
 cd  rccl-tests/
-MPI_HOME=/opt/cray/pe/mpich/8.1.15/ofi/cray/10.0 ROCM_PATH=/opt/rocm-5.0.2 MPI=1 NCCL_HOME=~/rccl/build/ make -j
+MPI_HOME=/opt/cray/pe/mpich/8.1.15/ofi/cray/10.0 ROCM_PATH=/opt/rocm-5.2.0 MPI=1 NCCL_HOME=~/rccl/build/ make -j
 ```
 
 3. Run perf tests
 ```
 export NCCL_DEBUG=INFO
 export FI_CXI_ATS=0
-export LD_LIBRARY_PATH=/home/${USER}/rccl/build:/home/${USER}/aws-ofi-rccl/src/.libs/:/opt/cray/libfabric/1.15.0.0/lib64/:/opt/rocm-5.0.2/lib
+export LD_LIBRARY_PATH=/home/${USER}/rccl/build:/home/${USER}/aws-ofi-rccl/src/.libs/:/opt/cray/libfabric/1.15.0.0/lib64/:/opt/rocm-5.2.0/lib
 export FI_LOG_LEVEL=info
-export NCCL_NET_GDR_LEVEL=4
+export NCCL_NET_GDR_LEVEL=3
 
 srun -N 4 ~/rccl-tests/build/all_reduce_perf -b 8 -e 1G -f 2 -g 8
 ```
