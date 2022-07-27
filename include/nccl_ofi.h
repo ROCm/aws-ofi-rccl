@@ -18,7 +18,7 @@ extern "C" {
 #include <rdma/fi_cm.h>
 #include <rdma/fi_tagged.h>
 #include <rdma/fi_rma.h>
-#include <rccl.h>
+#include <rccl/rccl.h>
 #include <nccl_net.h>
 
 #ifdef __GNUC__

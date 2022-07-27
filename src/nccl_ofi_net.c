@@ -120,9 +120,9 @@ static const char *nccl_ofi_req_state_str(nccl_ofi_req_state_t state)
 	}
 }
 
-static const char *nccl_ofi_req_direction_str(nccl_ofi_req_state_t state)
+static const char *nccl_ofi_req_direction_str(nccl_ofi_req_direction_t direction)
 {
-	switch(state) {
+	switch(direction) {
 	case NCCL_OFI_SEND:
 		return "SEND";
 	case NCCL_OFI_RECV:
@@ -1056,6 +1056,7 @@ static ncclResult_t ofi_init(ncclDebugLogger_t logFunction)
 	NCCL_OFI_INFO(NCCL_INIT | NCCL_NET, "Using " PACKAGE_STRING);
 
 	if (ofi_nccl_cuda_flush_enable()) {
+	  /*
 #if CUDART_VERSION < 11030
 		NCCL_OFI_WARN("CUDA flush requested, but CUDART_VERSION %ld < 11030", CUDART_VERSION);
 		cuda_flush = false;
@@ -1063,6 +1064,7 @@ static ncclResult_t ofi_init(ncclDebugLogger_t logFunction)
 		NCCL_OFI_WARN("CUDA flush enabled");
 		cuda_flush = true;
 #endif
+	  */
 	}
 
 	/*

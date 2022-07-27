@@ -50,7 +50,9 @@ AC_ARG_WITH([hip],
 AC_ARG_WITH([rccl],
             AC_HELP_STRING([--with-rccl=PATH], [Path to non-standard NCCL installation]),
             [AS_IF([test -d $withval/lib64], [rccl_libdir="lib64"], [rccl_libdir="lib"])
-             CFLAGS="-I/opt/rocm/include $CFLAGS"
+             CFLAGS="-I$withval/include $CFLAGS"
+             LDFLAGS="-L$withval/$rccl_libdir $LDFLAGS"],
+            [CFLAGS="-I/opt/rocm/include $CFLAGS"
              LDFLAGS="-L/opt/rocm/lib $LDFLAGS"],
             [])
 

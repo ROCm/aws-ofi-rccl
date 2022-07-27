@@ -6,8 +6,8 @@
 #
 
 AM_CFLAGS = -g -O3 -Wall -fPIC -Wno-sign-compare
-AM_CFLAGS += -I$(top_srcdir)/include -I/opt/cray/pe/mpich/8.1.9/ofi/cray/10.0/include
-AM_LDFLAGS = -lmpi -lamdhip64 -L/opt/cray/pe/lib64
+AM_CFLAGS += -I$(top_srcdir)/include
+AM_LDFLAGS = -lmpi -lamdhip64
 LDADD = ../src/librccl-net.la
 CC ?= mpicc
 
