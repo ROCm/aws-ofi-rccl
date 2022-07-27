@@ -6,15 +6,17 @@
 #
 
 AC_PREREQ([2.69])
-AC_INIT([aws-ofi-rccl], [1.2.0], [rashika@amazon.com], , [https://github.com/ROCmSoftwarePlatform/aws-ofi-rccl])
+AC_INIT([aws-ofi-rccl], [1.4.0], [rashika@amazon.com], , [https://github.com/ROCmSoftwarePlatform/aws-ofi-rccl])
 AC_CONFIG_SRCDIR([src/nccl_ofi_net.c])
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_MACRO_DIRS([m4])
 AM_SILENT_RULES([yes])
+AX_CHECK_ENABLE_DEBUG([no])
 
 # Checks for programs.
 AC_PROG_CC
+AC_PROG_CC_STDC
 AC_PROG_MAKE_SET
 AM_PROG_AR
 
@@ -55,9 +57,16 @@ AC_ARG_WITH([rccl],
 AC_ARG_WITH([mpi],
             AC_HELP_STRING([--with-mpi=PATH], [Path to non-standard MPI installation]),
             [AS_IF([test -d $withval/lib64], [mpi_libdir="lib64"], [mpi_libdir="lib"])
-             CFLAGS="-I$withval/include $CFLAGS"
+             CPPFLAGS="-I$withval/include $CPPFLAGS"
              LDFLAGS="-L$withval/$mpi_libdir $LDFLAGS"],
             [])
+
+AC_ARG_ENABLE([tests], [AS_HELP_STRING([--disable-tests],
+      [Disable build of test binaries])], [enable_tests], [])
+AM_CONDITIONAL([ENABLE_TESTS], [test "x$enable_tests" != "xno"])
+
+# Search first for mpi.h in provided directory, then on system.
+AS_IF([test "x$enable_tests" != "xno" ], AC_CHECK_HEADERS(mpi.h, [], AC_MSG_ERROR("mpi.h not found")))
 
 AC_ARG_ENABLE(trace, [AS_HELP_STRING([--enable-trace], [Enable printing trace messages])], [], [enable_trace=no])
 AC_MSG_CHECKING([whether to enable trace messages])
