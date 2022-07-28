@@ -17,7 +17,7 @@
 #include "mpi.h"
 #include "config.h"
 #include <unistd.h>
-#include <rccl.h>
+#include <rccl/rccl.h>
 #include <dlfcn.h>
 #include <stdarg.h>
 
@@ -144,7 +144,7 @@ ncclResult_t deallocate_buffer(void *buf, int buffer_type)
 		break;
 	default:
 		NCCL_OFI_WARN("Unidentified buffer type: %d", buffer_type);
-		return hipErrorInvalidValue;
+		return ncclInvalidArgument;
 	}
 
 	return ncclSuccess;

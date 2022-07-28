@@ -13,7 +13,7 @@ extern "C" {
 #include "config.h"
 #include <nccl_ofi.h>
 #include <nccl_ofi_log.h>
-#include <rccl.h>
+#include <rccl/rccl.h>
 #include <stdlib.h>
 
 /*

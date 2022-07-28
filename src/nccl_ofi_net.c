@@ -28,6 +28,10 @@ bool local_mr = false;
 bool hmem_mr = false;
 /* Indicates if GPUDirect is supported by libfabric provider */
 bool support_gdr = true;
+/* Indicates if the cudaDeviceFlushGPUDirectRDMAWrites function should be used
+ * to flush data to the GPU. Note, CUDA flush support is not supported on all
+ * platforms and should be disabled by default */
+bool cuda_flush = false;
 
 /*
  * @brief	Allocates free list for NCCL OFI requests
@@ -98,6 +102,50 @@ void free_ofi_fl(free_list_t *nccl_ofi_req_fl)
 		free_stack(nccl_ofi_req_fl->free_index);
 
 	free(nccl_ofi_req_fl);
+}
+
+static const char *nccl_ofi_req_state_str(nccl_ofi_req_state_t state)
+{
+	switch(state) {
+	case NCCL_OFI_REQ_CREATED:
+		return "CREATED";
+	case NCCL_OFI_REQ_PENDING:
+		return "PENDING";
+	case NCCL_OFI_REQ_COMPLETED:
+		return "COMPLETED";
+	case NCCL_OFI_REQ_ERROR:
+		return "ERROR";
+	default:
+		return "unknown";
+	}
+}
+
+static const char *nccl_ofi_req_direction_str(nccl_ofi_req_direction_t direction)
+{
+	switch(direction) {
+	case NCCL_OFI_SEND:
+		return "SEND";
+	case NCCL_OFI_RECV:
+		return "RECV";
+	default:
+		return "unknown";
+	}
+}
+
+/*
+ * @brief	Print NCCL OFI request information
+ */
+static const char *nccl_ofi_request_str(nccl_ofi_req_t *req)
+{
+	static char buf[256];
+	snprintf(buf, sizeof(buf), "{ buffer_index: %lu, dev: %d, size: %zu, state: %s, direction: %s }",
+		req->buffer_index,
+		req->dev,
+		req->size,
+		nccl_ofi_req_state_str(req->state),
+		nccl_ofi_req_direction_str(req->direction)
+	);
+	return buf;
 }
 
 /*
@@ -472,7 +520,9 @@ exit:
 static void get_hints(struct fi_info *hints, int request_gdr)
 {
 	if (request_gdr) {
-		hints->caps = FI_TAGGED | FI_MSG | FI_HMEM | FI_RMA | FI_READ | FI_REMOTE_COMM;
+		hints->caps = FI_TAGGED | FI_MSG | FI_HMEM | FI_REMOTE_COMM;
+		if (!cuda_flush)
+			hints->caps |= FI_RMA | FI_READ;
 		/*
 		 * Set MR mode bits to indicate that application allows
 		 * registration of both local and device memory buffers
@@ -928,7 +978,7 @@ static ncclResult_t ofi_process_cq(nccl_ofi_t *nccl_ofi_comp)
 	struct fi_cq_tagged_entry cqe_tagged_buffers[cqe_burst];
 	nccl_ofi_req_t *req = NULL;
 	struct fid_cq *cq = nccl_ofi_comp->cq;
-	uint64_t control_bit_mask = nccl_ofi_comp->max_tag+1;
+	uint64_t control_bit_mask = nccl_ofi_comp->max_tag + 1;
 
 	while (true) {
 
@@ -946,19 +996,30 @@ static ncclResult_t ofi_process_cq(nccl_ofi_t *nccl_ofi_comp)
 		}
 		else if (OFI_UNLIKELY(rc == -FI_EAVAIL)) {
 			rc = fi_cq_readerr(cq, &err_buffer, 0);
-			if (OFI_UNLIKELY(rc < 0)) {
+			if (OFI_UNLIKELY(rc == -FI_EAGAIN)) {
+				/*
+				 * Error not available yet.
+				 * fi_cq_read will keep returning -FI_EAVAIL so just bail out and try again later.
+				 */
+				break;
+			} else if (OFI_UNLIKELY(rc < 0)) {
 				NCCL_OFI_WARN("Unable to read from fi_cq_readerr. RC: %zd. Error: %s",
 					     rc,
-					     fi_cq_strerror(cq,
-						err_buffer.prov_errno,
-						err_buffer.err_data, NULL, 0));
+					     fi_strerror(-rc));
 				ret = ncclSystemError;
 				goto exit;
 			}
 
-			/* TODO: Add debug log to dump failed request details */
 			req = container_of(err_buffer.op_context,
 					   nccl_ofi_req_t, ctx);
+			NCCL_OFI_WARN("Request %p completed with error. RC: %d. Error: %s. Completed length: %ld, Request: %s",
+					req,
+					err_buffer.err,
+				    fi_cq_strerror(cq,
+						err_buffer.prov_errno,
+						err_buffer.err_data, NULL, 0),
+					(long)err_buffer.len,
+					nccl_ofi_request_str(req));
 			req->state = NCCL_OFI_REQ_ERROR;
 			req->size = err_buffer.len;
 		}
@@ -968,7 +1029,7 @@ static ncclResult_t ofi_process_cq(nccl_ofi_t *nccl_ofi_comp)
 		}
 		else {
 			NCCL_OFI_WARN("Unable to retrieve completion queue entries. RC: %zd, ERROR: %s",
-				     rc, fi_strerror(-ret));
+				     rc, fi_strerror(-rc));
 			ret = ncclSystemError;
 			goto exit;
 		}
@@ -993,6 +1054,18 @@ static ncclResult_t ofi_init(ncclDebugLogger_t logFunction)
 	ofi_log_function = logFunction;
 
 	NCCL_OFI_INFO(NCCL_INIT | NCCL_NET, "Using " PACKAGE_STRING);
+
+	if (ofi_nccl_cuda_flush_enable()) {
+	  /*
+#if CUDART_VERSION < 11030
+		NCCL_OFI_WARN("CUDA flush requested, but CUDART_VERSION %ld < 11030", CUDART_VERSION);
+		cuda_flush = false;
+#else
+		NCCL_OFI_WARN("CUDA flush enabled");
+		cuda_flush = true;
+#endif
+	  */
+	}
 
 	/*
 	 * FI_EFA_FORK_SAFE environment variable tells Libfabric to enable
@@ -1515,7 +1588,7 @@ static ssize_t send_connect_message(sendComm_t *sComm, nccl_ofi_req_t *req)
 	 */
 	rc = fi_tsend(sComm->local_ep, (void *)local_ep_addr,
 			MAX_EP_ADDR, NULL, sComm->remote_ep,
-			sComm->tag | ~max_tag, &req->ctx);
+			sComm->tag | (max_tag + 1), &req->ctx);
 	if (rc == -FI_EAGAIN) {
 		/*
 		 * Process completions so that you have enough
@@ -1818,7 +1891,7 @@ static ncclResult_t ofi_connect(int dev, void *handle, void **sendComm)
 		 */
 		rc = fi_tsend(sComm->local_ep, (void *)conn_info,
 			      sizeof(*conn_info), NULL, sComm->remote_ep,
-			      sComm->tag | (max_tag+1), &req->ctx);
+			      sComm->tag | (max_tag + 1), &req->ctx);
 		if (rc == 0)
 			break;
 		else if (rc == -FI_EAGAIN) {
@@ -1935,7 +2008,7 @@ static ssize_t post_recv_conn(listenComm_t *lComm, char **buffer,
 
 	/* Post a buffer for receiving connection requests */
 	rc = fi_trecv(lComm->local_ep, (void *)*buffer, size,
-		      NULL, FI_ADDR_UNSPEC, lComm->tag | ~max_tag,
+		      NULL, FI_ADDR_UNSPEC, lComm->tag | (max_tag + 1),
 		      0, &req->ctx);
 	if (rc == -FI_EAGAIN) {
 		/*
@@ -2053,7 +2126,7 @@ static recvComm_t *prepare_recv_comm(listenComm_t *lComm, char *remote_ep_addr)
 	 * Setup flush resources if using GPUDirect RDMA unless user disables
 	 * flush operations
 	 */
-	if (!ofi_nccl_gdr_flush_disable() && support_gdr) {
+	if (!ofi_nccl_gdr_flush_disable() && support_gdr && !cuda_flush) {
 		rComm->flush_buff.size = NCCL_OFI_FLUSH_SIZE;
 		ret = alloc_and_reg_flush_buff(rComm);
 		if (OFI_UNLIKELY(ret != ncclSuccess)) {
@@ -2088,8 +2161,8 @@ static ncclResult_t ofi_iaccept(void *listenComm, void **recvComm)
 		return ncclSystemError;
 	}
 
-	if (lComm->accepted == true) {
-		NCCL_OFI_WARN("listenComm object already has an active connection.");
+	if (lComm->state.stage != COMM_REQ_PENDING_COMP && lComm->accepted) {
+		NCCL_OFI_WARN("listenComm %p object already has an active connection (%d).", listenComm, lComm->accepted);
 		return ncclSystemError;
 	}
 
@@ -2234,7 +2307,7 @@ static ncclResult_t ofi_accept(void *listenComm, void **recvComm)
 	/* Post a buffer for receiving connection requests */
 	do {
 		rc = fi_trecv(lComm->local_ep, (void *)&conn_info, sizeof(conn_info),
-			      NULL, FI_ADDR_UNSPEC, lComm->tag | (max_tag+1),
+			      NULL, FI_ADDR_UNSPEC, lComm->tag | (max_tag + 1),
 			      0, &req->ctx);
 		if (rc == 0)
 			break;
@@ -2298,7 +2371,7 @@ static ncclResult_t ofi_accept(void *listenComm, void **recvComm)
 	rComm->remote_ep = remote_ep;
 	rComm->dev = dev;
 
-	if (!ofi_nccl_gdr_flush_disable() && support_gdr) {
+	if (!ofi_nccl_gdr_flush_disable() && support_gdr && !cuda_flush) {
 		NCCL_OFI_TRACE(NCCL_INIT | NCCL_NET, "Registering buffer for flush operations");
 		rComm->flush_buff.size = NCCL_OFI_FLUSH_SIZE;
 		rComm->flush_buff.host_buffer = mmap(NULL, page_size, PROT_READ | PROT_WRITE,
@@ -2691,6 +2764,22 @@ static ncclResult_t ofi_iflush(void* recvComm, void* buffer, int size,
 	if (ofi_nccl_gdr_flush_disable() || !support_gdr)
 		goto exit;
 
+#if CUDART_VERSION >= 11030
+	if (cuda_flush) {
+		cudaError_t cuda_ret = cudaDeviceFlushGPUDirectRDMAWrites(
+						cudaFlushGPUDirectRDMAWritesTargetCurrentDevice,
+						cudaFlushGPUDirectRDMAWritesToOwner);
+
+		if (cuda_ret != cudaSuccess) {
+			ret = ncclUnhandledCudaError;
+			NCCL_OFI_WARN("Error performing CUDA GDR flush");
+			goto exit;
+		}
+
+		goto exit;
+	}
+#endif
+
 	/* Validate recvComm */
 	if (OFI_UNLIKELY(rComm == NULL)) {
 		ret = ncclSystemError;
@@ -2829,20 +2918,16 @@ static ncclResult_t ofi_flush(void* recvComm, void* data, int size,
 	nccl_ofi_req_t *req = NULL;
 	int done = 0;
 
-	if (size == 0) {
-		/*
-		 * Flush is an expensive operation. So, don't send fi_read for
-		 * 0-sized messages. Since, NCCL issues flush for every irecv(),
-		 * we guarantee to sync data to GPU even without it.
-		 */
+	ret = ofi_iflush(recvComm, data, size, mhandle, (void **)&req);
+	if (OFI_UNLIKELY(ret != ncclSuccess)) {
 		goto exit;
 	}
 
-	if (ofi_nccl_gdr_flush_disable() || !support_gdr)
-		goto exit;
-
-	ret = OFI_UNLIKELY(ofi_iflush(recvComm, data, size, mhandle, (void **)&req));
-	if (ret != ncclSuccess) {
+	/*
+	 * Req could be NULL for zero-sized writes or when GDR isn't used or
+	 * when CUDA flush is enabled
+	 */
+	if (req == NULL) {
 		goto exit;
 	}
 
@@ -2907,7 +2992,7 @@ static ncclResult_t ofi_closeRecv(void *recvComm)
 
 	dev = rComm->dev;
 
-	if (!ofi_nccl_gdr_flush_disable() && support_gdr) {
+	if (!ofi_nccl_gdr_flush_disable() && support_gdr && !cuda_flush) {
 		NCCL_OFI_TRACE(NCCL_INIT | NCCL_NET, "De-registering buffer for flush operations");
 		/* Deregister Flush buffer memory region */
 		mr_handle = (struct fid_mr *)rComm->flush_buff.mr_handle;
