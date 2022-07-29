@@ -60,11 +60,11 @@ find the instructions for installing the first two at
 ### Build latest RCCL develop branch
 ```
 cd ~
-git clone hxxps://github.com/ROCmSoftwarePlatform/rccl.git
+git clone https://github.com/ROCmSoftwarePlatform/rccl.git
 cd rccl
 mkdir build
 cd build/
-CXX=/opt/rocm-5.2.0/bin/hipcc cmake ..
+CXX=/opt/rocm-5.2.0/bin/hipcc cmake -DCMAKE_PREFIX_PATH=/opt/rocm/ ..
 make -j
 ```
 ### Plugin build Instructions
