@@ -57,16 +57,29 @@ find the instructions for installing the first two at
 [RCCL installation](https://github.com/ROCmSoftwarePlatform/rccl) and
 [libfabric installation](https://github.com/ofiwg/libfabric) respectively.
 
-### Build Instructions
+### Build latest RCCL develop branch
+```
+cd ~
+git clone hxxps://github.com/ROCmSoftwarePlatform/rccl.git
+cd rccl
+mkdir build
+cd build/
+CXX=/opt/rocm-5.2.0/bin/hipcc cmake ..
+make -j
+```
+### Plugin build Instructions
 
 The plugin uses GNU autotools for its build system. You can build it as follows:
 
 ```
 $ ./autogen.sh
-$ CC=cc ./configure --with-libfabric=/opt/cray/libfabric/1.15.0.0 --with-hip=/opt/rocm-5.2.0
+$ CC=cc ./configure --with-libfabric=/opt/cray/libfabric/1.15.0.0 --with-hip=/opt/rocm-5.2.0 --with-rccl=path-to-rccl-build-folder
 $ make
 $ sudo make install
 ```
+
+"--with-rccl=path-to-rccl-build-folder": Let's suppose we build RCCL at /home/username/rccl/build,
+then "--with-rccl=/home/username/rccl/build".
 
 If you want to install the plugin in a custom path, use the `--prefix`
 configure flag to provide the path. You can also point the build to custom
@@ -151,16 +164,6 @@ mpirun -n 2 --host <host-1>,<host-2> $INSTALL_PREFIX/bin/rccl_message_transfer
 **Note:** All tests require 2 MPI ranks to run except [ring.c](tests/ring.c)
 which requires atleast 3 ranks.
 
-### Build latest RCCL develop branch
-```
-cd ~
-git clone hxxps://github.com/ROCmSoftwarePlatform/rccl.git
-cd rccl
-mkdir build
-cd build/
-CXX=/opt/rocm-5.2.0/bin/hipcc cmake ..
-make -j
-```
 
 ### Running rccl-perf tests
 
