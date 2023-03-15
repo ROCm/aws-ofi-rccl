@@ -414,6 +414,63 @@ static void filter_tcp_info_list()
 }
 
 /*
+ * @brief	Removes multiple info objects from global `ofi_info_list`
+ *		that reference the same domain for CXI provider.
+ */
+static void filter_cxi_info_list()
+{
+	struct fi_info *prev = NULL, *curr = NULL;
+	struct fi_info *delete_info = NULL;
+	char *prev_domain_name = NULL;
+
+	NCCL_OFI_TRACE(NCCL_INIT | NCCL_NET, "Removing multiple CXI info for same domain");
+
+	curr = ofi_info_list;
+
+	while (curr != NULL) {
+
+		/* Check for mulitple info from same domain */
+		if (prev_domain_name &&
+		    !strcmp(curr->domain_attr->name, prev_domain_name)) {
+
+			if (prev != NULL) {
+				prev->next = curr->next;
+			}
+			ofi_ndevices--;
+
+			delete_info = curr;
+			curr = curr->next;
+
+			/* Delete node matching criteria */
+			delete_info->next = NULL;
+			fi_freeinfo(delete_info);
+		}
+		else {
+			/* First time we see a domain */
+			prev_domain_name = curr->domain_attr->name;
+			if (prev == NULL) {
+				/*
+				 * Update HEAD of ofi_info_list to point to first endpoint which
+				 * can be used for communication.
+				 */
+				ofi_info_list = curr;
+			}
+
+			prev = curr;
+			curr = curr->next;
+		}
+	}
+
+	/*
+	 * In case all info objects match the filter criteria,
+	 * update HEAD of ofi_info_list to point to NULL.
+	 */
+	if (prev == NULL) {
+		ofi_info_list = prev;
+	}
+}
+
+/*
  * @brief	Gets the CUDA device associated with the buffer
  *
  * @param	data
@@ -1117,6 +1174,16 @@ static ncclResult_t ofi_init(ncclDebugLogger_t logFunction)
 		filter_tcp_info_list();
 		if (OFI_UNLIKELY(ofi_info_list == NULL)) {
 			NCCL_OFI_WARN("No viable endpoint found for TCP provider. Try and relax the filters using OFI_NCCL_USE_IPV6_TCP or OFI_NCCL_EXCLUDE_TCP_IF environment variables");
+			ret = ncclSystemError;
+			goto exit;
+		}
+	}
+
+	/* If CXI provider is selected, filter out info referencing same domain */
+	if (strncmp("cxi", ofi_info_list->fabric_attr->prov_name, strlen("cxi")) == 0) {
+		filter_cxi_info_list();
+		if (OFI_UNLIKELY(ofi_info_list == NULL)) {
+			NCCL_OFI_WARN("No viable endpoint found for CXI provider.");
 			ret = ncclSystemError;
 			goto exit;
 		}
