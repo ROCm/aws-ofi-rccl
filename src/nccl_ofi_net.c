@@ -15,6 +15,13 @@
 #include <stack.h>
 #include <nccl_ofi_param.h>
 
+/* On ROCm 6.0 memoryType in hipPointerAttribute_t structure was renamed to type */
+#if (HIP_VERSION_MAJOR < 6)
+#  define MEMORY_TYPE_ATTRIBUTE(x) (x).memoryType
+#else
+#  define MEMORY_TYPE_ATTRIBUTE(x) (x).type
+#endif
+
 static uint32_t libversion = 0;
 /* NICs info list for a provider */
 struct fi_info* ofi_info_list = NULL;
@@ -494,7 +501,7 @@ static ncclResult_t get_cuda_device(void *data, int *device)
 		goto exit;
 	}
 
-	if (attr.memoryType == hipMemoryTypeDevice) {
+	if (MEMORY_TYPE_ATTRIBUTE(attr) == hipMemoryTypeDevice) {
 		cuda_device = attr.device;
 	}
 	else {
