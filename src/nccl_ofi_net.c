@@ -494,7 +494,7 @@ static ncclResult_t get_cuda_device(void *data, int *device)
 		goto exit;
 	}
 
-	if (attr.memoryType == hipMemoryTypeDevice) {
+	if (attr.type == hipMemoryTypeDevice) {
 		cuda_device = attr.device;
 	}
 	else {
