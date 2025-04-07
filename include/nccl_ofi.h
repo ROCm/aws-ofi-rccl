@@ -36,6 +36,13 @@ extern "C" {
 #define MAX_PROV_INFO		(15)
 #define MAX_BDF_LEN		(25)
 
+/* Copied from libfabric:rdma/fabric.h@30ec628: "libfabric: Initial commit" */
+#ifndef container_of
+#define container_of(ptr, type, field) \
+	((type *) ((char *)ptr - offsetof(type, field)))
+#endif
+/* end of copied libfabric macros */
+
 /*
  * NCCL_NET_HANDLE_MAXSIZE is a limited resource (and defined in NCCL).
  * An endpoint address buffer of 56 bytes *should* be large enough to hold
