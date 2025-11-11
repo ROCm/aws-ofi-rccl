@@ -1,4 +1,4 @@
-# AWS OFI RCCL
+# AWS OFI RCCL is deprecated, please utilize upstream https://github.com/aws/aws-ofi-nccl which has support for ROCm + AMD GPUs
 
 AWS OFI RCCL is a plug-in which enables EC2 developers to use
 [libfabric](https://github.com/ofiwg/libfabric) as a network provider while
